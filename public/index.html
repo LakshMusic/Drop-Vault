@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DropVault - Anonymous File Upload</title>
+  <style>
+    body {
+      background-color: #0d0d0d;
+      color: #eaeaea;
+      font-family: "Segoe UI", Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      color: #4cafef;
+      font-size: 2rem;
+      margin-bottom: 15px;
+    }
+    form {
+      background: #1a1a1a;
+      padding: 25px;
+      border-radius: 14px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      width: 360px;
+    }
+    label {
+      font-size: 0.95rem;
+      color: #ccc;
+    }
+    input[type="text"] {
+      background: #262626;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      width: 100%;
+    }
+    .drop-zone {
+      border: 2px dashed #4cafef;
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      color: #aaa;
+      transition: background 0.3s;
+    }
+    .drop-zone.dragover {
+      background: rgba(76,175,239,0.1);
+    }
+    button {
+      background: #4cafef;
+      color: #0d0d0d;
+      font-weight: bold;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+      width: 100%;
+      font-size: 1rem;
+    }
+    button:hover {
+      background: #2196f3;
+    }
+    #link {
+      margin-top: 10px;
+      font-size: 0.95rem;
+      text-align: center;
+      word-wrap: break-word;
+    }
+    a {
+      color: #4cafef;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    footer {
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: #666;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <h2>DropVault</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <div>
+        <label>Optional Name:</label>
+        <input type="text" name="username" placeholder="Enter your name (optional)">
+      </div>
+      
+      <div class="drop-zone" id="dropZone">
+        Drag & Drop File Here or Click to Upload
+        <input type="file" name="file" id="fileInput">
+      </div>
+      
+      <button type="submit">Upload</button>
+    </form>
+
+    <p id="link"></p>
+  </div>
+
+  <footer>
+    Creator: Laksh
+  </footer>
+
+  <script>
+    const form = document.getElementById("uploadForm");
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+
+    // Click drop zone to trigger file picker
+    dropZone.addEventListener("click", () => fileInput.click());
+
+    // Highlight when dragging
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragover");
+    });
+
+    dropZone.addEventListener("dragleave", () => {
+      dropZone.classList.remove("dragover");
+    });
+
+    // Handle drop
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+      }
+    });
+
+    // Handle submit
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const res = await fetch("/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      document.getElementById("link").innerHTML = 
+        `✅ File Uploaded! <br> Download: <a href="${data.url}">${data.url}</a>`;
+    });
+  </script>
+</body>
+</html>
