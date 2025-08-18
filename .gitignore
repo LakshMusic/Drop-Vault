@@ -1,7 +1,7 @@
 # Node.js dependencies
 node_modules/
 
-# Uploaded files (we don’t want random user files on GitHub)
+# Uploaded files (user uploads)
 uploads/
 
 # Logs
@@ -9,6 +9,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS files
-.DS_Store
+# Windows system files
 Thumbs.db
+Desktop.ini
+
+# Optional: VS Code settings
+.vscode/
