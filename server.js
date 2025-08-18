@@ -5,23 +5,24 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Laksh@123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'YourNewPasswordHere'; // change here or via env
 
 const uploadFolder = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadFolder)) fs.mkdirSync(uploadFolder);
 
 const upload = multer({ dest: uploadFolder });
 
-// Serve static frontend
+// Serve frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Upload route
 app.post('/upload', upload.single('file'), (req, res) => {
   const username = req.body.username || "Anonymous";
   const originalName = req.file.originalname;
+  const timestamp = Date.now();
 
-  // Rename file to include username + timestamp
-  const newName = `${username}__${Date.now()}__${originalName}`;
+  // Filename format: username__timestamp__originalname
+  const newName = `${username}__${timestamp}__${originalName}`;
   const newPath = path.join(uploadFolder, newName);
 
   fs.rename(req.file.path, newPath, (err) => {
@@ -47,16 +48,19 @@ app.get('/admin', (req, res) => {
       </style>
       <h1>Uploaded Files</h1>
       <table>
-      <tr><th>Uploader</th><th>Filename</th><th>Download</th></tr>`;
+      <tr><th>Uploader</th><th>Filename</th><th>Date & Time</th><th>Download</th></tr>`;
 
     files.forEach(file => {
-      // Extract uploader and original filename
       const parts = file.split('__');
       const uploader = parts[0];
-      const filename = parts.slice(2).join('__'); // handle filenames with __
+      const timestamp = Number(parts[1]);
+      const filename = parts.slice(2).join('__');
+      const date = new Date(timestamp).toLocaleString();
+
       html += `<tr>
         <td>${uploader}</td>
         <td>${filename}</td>
+        <td>${date}</td>
         <td><a href="/admin/download/${file}?password=${ADMIN_PASSWORD}" target="_blank">Download</a></td>
       </tr>`;
     });
