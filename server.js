@@ -12,13 +12,22 @@ if (!fs.existsSync(uploadFolder)) fs.mkdirSync(uploadFolder);
 
 const upload = multer({ dest: uploadFolder });
 
-// Serve static files (frontend)
+// Serve static frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Upload route
 app.post('/upload', upload.single('file'), (req, res) => {
   const username = req.body.username || "Anonymous";
-  res.send(`File uploaded successfully by ${username}`);
+  const originalName = req.file.originalname;
+
+  // Rename file to include username + timestamp
+  const newName = `${username}__${Date.now()}__${originalName}`;
+  const newPath = path.join(uploadFolder, newName);
+
+  fs.rename(req.file.path, newPath, (err) => {
+    if (err) return res.status(500).send("Error saving file");
+    res.send(`File uploaded successfully by ${username}`);
+  });
 });
 
 // Admin dashboard
@@ -31,15 +40,28 @@ app.get('/admin', (req, res) => {
 
     let html = `<style>
       body { background-color: #121212; color: #eee; font-family: sans-serif; padding: 20px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 10px; border-bottom: 1px solid #333; text-align: left; }
       a { color: #1e90ff; text-decoration: none; }
       a:hover { text-decoration: underline; }
-      ul { list-style-type: none; padding: 0; }
-      li { margin: 5px 0; }
-      </style><h1>Uploaded Files</h1><ul>`;
+      </style>
+      <h1>Uploaded Files</h1>
+      <table>
+      <tr><th>Uploader</th><th>Filename</th><th>Download</th></tr>`;
+
     files.forEach(file => {
-      html += `<li><a href="/admin/download/${file}?password=${ADMIN_PASSWORD}" target="_blank">${file}</a></li>`;
+      // Extract uploader and original filename
+      const parts = file.split('__');
+      const uploader = parts[0];
+      const filename = parts.slice(2).join('__'); // handle filenames with __
+      html += `<tr>
+        <td>${uploader}</td>
+        <td>${filename}</td>
+        <td><a href="/admin/download/${file}?password=${ADMIN_PASSWORD}" target="_blank">Download</a></td>
+      </tr>`;
     });
-    html += `</ul>`;
+
+    html += `</table>`;
     res.send(html);
   });
 });
