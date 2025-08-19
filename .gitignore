@@ -1,12 +1,6 @@
-# Node modules
 node_modules/
-
-# Uploaded files (temporary storage)
-uploads/
-
-# Service account private key (keep it secret!)
+.env
 service-account.json
-
-# Logs
 *.log
-
+.DS_Store
+Thumbs.db
