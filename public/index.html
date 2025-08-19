@@ -1,46 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DropVault</title>
-<style>
-body { background-color: #121212; color: #eee; font-family: sans-serif; text-align: center; padding: 50px; }
-#drop-area { border: 2px dashed #1e90ff; padding: 50px; cursor: pointer; margin-bottom: 20px; }
-input, button { padding: 10px; margin: 5px; border-radius: 5px; border: none; }
-button { background-color: #1e90ff; color: white; cursor: pointer; }
-button:hover { background-color: #005f99; }
-</style>
+  <title>DropVault Upload</title>
 </head>
 <body>
-<h1>DropVault</h1>
-<div id="drop-area">
-  <p>Drag & Drop your file here or click to select</p>
-  <input type="file" id="fileElem" name="file">
-</div>
-<input type="text" id="username" placeholder="Optional name">
-<button id="uploadBtn">Upload</button>
-
-<script>
-const dropArea = document.getElementById('drop-area');
-const fileInput = document.getElementById('fileElem');
-const uploadBtn = document.getElementById('uploadBtn');
-
-dropArea.addEventListener('click', () => fileInput.click());
-
-uploadBtn.addEventListener('click', async () => {
-  const file = fileInput.files[0];
-  if (!file) return alert('Please select a file');
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('username', document.getElementById('username').value);
-
-  const res = await fetch('/upload', { method: 'POST', body: formData });
-  const text = await res.text();
-  alert(text);
-  fileInput.value = '';
-  document.getElementById('username').value = '';
-});
-</script>
+  <h1>Upload a File</h1>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="text" name="username" placeholder="Your Name" required><br>
+    <input type="password" name="filepass" placeholder="File Password" required><br>
+    <input type="file" name="file" required><br>
+    <button type="submit">Upload</button>
+  </form>
+  <br>
+  <a href="/files">View Files</a>
 </body>
 </html>
