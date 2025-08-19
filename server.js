@@ -1,24 +1,21 @@
-// server.js
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
-const bcrypt = require('bcryptjs');
-
-const { uploadFile, getFileUrl } = require('./utils/drive');
+const path = require('path');
+const { uploadFile } = require('./utils/drive');
 const { hashPassword, verifyPassword } = require('./utils/security');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'YourAdminPassHere';
 
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
+
 const uploadFolder = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadFolder)) fs.mkdirSync(uploadFolder);
 
 const upload = multer({ dest: uploadFolder });
-
-// Serve frontend
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Load metadata
 const metadataPath = path.join(__dirname, 'data', 'metadata.json');
@@ -33,26 +30,16 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     const username = req.body.username || "Anonymous";
-    const password = req.body.password || Math.random().toString(36).slice(2, 8); // optional password
+    const password = req.body.password || Math.random().toString(36).slice(2, 8);
     const passwordHash = await hashPassword(password);
 
-    // Upload to Google Drive
     const fileId = await uploadFile(req.file);
     const url = `https://drive.google.com/uc?id=${fileId}&export=download`;
 
-    // Save metadata
-    metadata.push({
-      username,
-      filename: req.file.originalname,
-      passwordHash,
-      fileId
-    });
+    metadata.push({ username, filename: req.file.originalname, passwordHash, fileId });
     fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
-    // Return JSON
     res.json({ url, message: `File uploaded successfully! Access password: ${password}` });
-
-    // Clean local upload
     fs.unlinkSync(req.file.path);
   } catch (err) {
     console.error(err);
@@ -60,8 +47,8 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// --- Public Files Page Access ---
-app.post("/access-file", express.json(), async (req, res) => {
+// --- Public access route ---
+app.post("/access-file", async (req, res) => {
   try {
     const { filename, password } = req.body;
     const fileMeta = metadata.find(m => m.filename === filename);
@@ -107,5 +94,4 @@ app.get('/admin', (req, res) => {
   res.send(html);
 });
 
-// --- Start Server ---
 app.listen(PORT, () => console.log(`DropVault running on port ${PORT}`));
