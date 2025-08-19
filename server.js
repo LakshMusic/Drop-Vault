@@ -1,97 +1,46 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
 const path = require('path');
-const { uploadFile } = require('./utils/drive');
-const { hashPassword, verifyPassword } = require('./utils/security');
+const fs = require('fs');
+const { uploadFile, listFiles } = require('./utils/drive');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'YourAdminPassHere';
-
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
 
 const uploadFolder = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadFolder)) fs.mkdirSync(uploadFolder);
 
 const upload = multer({ dest: uploadFolder });
 
-// Load metadata
-const metadataPath = path.join(__dirname, 'data', 'metadata.json');
-let metadata = [];
-if (fs.existsSync(metadataPath)) {
-  metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
-}
+app.use(express.static(path.join(__dirname, 'public')));
 
-// --- Upload Route ---
-app.post("/upload", upload.single("file"), async (req, res) => {
+// Upload route
+app.post('/upload', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).send("No file uploaded");
   try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-
-    const username = req.body.username || "Anonymous";
-    const password = req.body.password || Math.random().toString(36).slice(2, 8);
-    const passwordHash = await hashPassword(password);
-
     const fileId = await uploadFile(req.file);
     const url = `https://drive.google.com/uc?id=${fileId}&export=download`;
-
-    metadata.push({ username, filename: req.file.originalname, passwordHash, fileId });
-    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-
-    res.json({ url, message: `File uploaded successfully! Access password: ${password}` });
-    fs.unlinkSync(req.file.path);
+    res.send(`✅ File uploaded successfully!<br>Name: ${req.file.originalname}<br>Download Link: <a href="${url}" target="_blank">${url}</a>`);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Upload failed", details: err.message });
+    res.status(500).send("Upload failed: " + err.message);
   }
 });
 
-// --- Public access route ---
-app.post("/access-file", async (req, res) => {
+// Public files list
+app.get('/files', async (req, res) => {
   try {
-    const { filename, password } = req.body;
-    const fileMeta = metadata.find(m => m.filename === filename);
-    if (!fileMeta) return res.status(404).json({ error: "File not found" });
-
-    const valid = await verifyPassword(password, fileMeta.passwordHash);
-    if (!valid) return res.status(403).json({ error: "Invalid password" });
-
-    const url = `https://drive.google.com/uc?id=${fileMeta.fileId}&export=download`;
-    res.json({ url });
+    const files = await listFiles();
+    let html = `<h1>DropVault Files</h1><ul>`;
+    files.forEach(f => {
+      html += `<li><a href="https://drive.google.com/uc?id=${f.id}&export=download" target="_blank">${f.name}</a></li>`;
+    });
+    html += `</ul>`;
+    res.send(html);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to access file" });
+    res.status(500).send("Failed to list files: " + err.message);
   }
-});
-
-// --- Admin Dashboard ---
-app.get('/admin', (req, res) => {
-  const password = req.query.password;
-  if (password !== ADMIN_PASSWORD) return res.status(403).send("Forbidden: Invalid password");
-
-  let html = `<style>
-    body { background-color: #121212; color: #eee; font-family: sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 10px; border-bottom: 1px solid #333; text-align: left; }
-    a { color: #1e90ff; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    </style>
-    <h1>Uploaded Files</h1>
-    <table>
-    <tr><th>Uploader</th><th>Filename</th><th>Download</th></tr>`;
-
-  metadata.forEach(file => {
-    const url = `https://drive.google.com/uc?id=${file.fileId}&export=download`;
-    html += `<tr>
-      <td>${file.username}</td>
-      <td>${file.filename}</td>
-      <td><a href="${url}" target="_blank">Download</a></td>
-    </tr>`;
-  });
-
-  html += `</table>`;
-  res.send(html);
 });
 
 app.listen(PORT, () => console.log(`DropVault running on port ${PORT}`));
