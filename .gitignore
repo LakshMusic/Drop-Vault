@@ -1,17 +1,12 @@
-# Node.js dependencies
+# Node modules
 node_modules/
 
-# Uploaded files (user uploads)
+# Uploaded files (temporary storage)
 uploads/
 
+# Service account private key (keep it secret!)
+service-account.json
+
 # Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+*.log
 
-# Windows system files
-Thumbs.db
-Desktop.ini
-
-# Optional: VS Code settings
-.vscode/
