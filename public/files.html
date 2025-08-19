@@ -4,7 +4,67 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DropVault - Files</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      background: #121212;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #1e1e1e;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.5);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #4fc3f7;
+    }
+    .file-item {
+      background: #2c2c2c;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .file-item p {
+      margin: 0;
+    }
+    .file-item button {
+      background: #4fc3f7;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #121212;
+      font-weight: bold;
+    }
+    .file-item button:hover {
+      background: #0288d1;
+    }
+    .nav {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .nav a {
+      color: #4fc3f7;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .nav a:hover {
+      text-decoration: underline;
+    }
+    span {
+      margin-left: 10px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -14,7 +74,68 @@
       <a href="index.html">⬅ Back to Upload</a>
     </div>
   </div>
-  <script src="files.js"></script>
+
+  <script>
+    async function loadFiles() {
+      const fileListDiv = document.getElementById("fileList");
+      fileListDiv.innerHTML = "Loading files...";
+
+      try {
+        const res = await fetch("/files");
+        const files = await res.json();
+
+        if (files.length === 0) {
+          fileListDiv.innerHTML = "<p>No files uploaded yet.</p>";
+          return;
+        }
+
+        fileListDiv.innerHTML = "";
+        files.forEach(file => {
+          const fileDiv = document.createElement("div");
+          fileDiv.className = "file-item";
+
+          fileDiv.innerHTML = `
+            <p><strong>${file.filename}</strong> (by ${file.uploader})</p>
+            <div>
+              <button onclick="accessFile('${file.id}')">Access</button>
+              <span id="msg-${file.id}"></span>
+            </div>
+          `;
+
+          fileListDiv.appendChild(fileDiv);
+        });
+      } catch (err) {
+        fileListDiv.innerHTML = "<p>Error loading files!</p>";
+      }
+    }
+
+    async function accessFile(fileId) {
+      const password = prompt("Enter password to access this file:");
+      if (!password) return;
+
+      try {
+        const res = await fetch(`/access/${fileId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await res.json();
+        const msgSpan = document.getElementById(`msg-${fileId}`);
+
+        if (res.ok) {
+          msgSpan.innerHTML = `<a href="${data.downloadUrl}" target="_blank">⬇ Download</a>`;
+          msgSpan.style.color = "lightgreen";
+        } else {
+          msgSpan.innerText = data.error;
+          msgSpan.style.color = "red";
+        }
+      } catch (err) {
+        alert("Something went wrong!");
+      }
+    }
+
+    loadFiles();
+  </script>
 </body>
 </html>
-
