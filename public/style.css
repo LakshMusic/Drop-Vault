@@ -1,1 +1,76 @@
+body {
+  background-color: #121212;
+  color: #e0e0e0;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 500px;
+  margin: 50px auto;
+  background: #1e1e1e;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.5);
+}
+
+h1 {
+  text-align: center;
+  color: #4fc3f7;
+}
+
+label {
+  display: block;
+  margin-top: 15px;
+  font-size: 14px;
+  color: #bbb;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="file"] {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  border: none;
+  border-radius: 8px;
+  background: #2c2c2c;
+  color: #fff;
+}
+
+button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px;
+  background: #4fc3f7;
+  color: #121212;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0288d1;
+}
+
+#status {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.nav {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.nav a {
+  color: #81d4fa;
+  text-decoration: none;
+}
+
+.nav a:hover {
+  text-decoration: underline;
+}
 
