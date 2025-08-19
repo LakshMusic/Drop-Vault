@@ -1,82 +1,107 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+const { uploadFile, getFileLink } = require('./utils/drive');
+const { hashPassword, checkPassword } = require('./utils/security');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'YourNewPasswordHere'; // change here or via env
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
-const uploadFolder = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadFolder)) fs.mkdirSync(uploadFolder);
+const upload = multer({ dest: "uploads/" });
+const metadataPath = path.join(__dirname, "data", "metadata.json");
 
-const upload = multer({ dest: uploadFolder });
+// ensure metadata file exists
+if (!fs.existsSync(metadataPath)) fs.writeFileSync(metadataPath, "[]");
 
-// Serve frontend
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
 
-// Upload route
-app.post('/upload', upload.single('file'), (req, res) => {
-  const username = req.body.username || "Anonymous";
-  const originalName = req.file.originalname;
-  const timestamp = Date.now();
+// Upload Route
+app.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    const { username, filepass } = req.body;
+    const file = req.file;
 
-  // Filename format: username__timestamp__originalname
-  const newName = `${username}__${timestamp}__${originalName}`;
-  const newPath = path.join(uploadFolder, newName);
+    if (!file) return res.status(400).send("No file uploaded");
 
-  fs.rename(req.file.path, newPath, (err) => {
-    if (err) return res.status(500).send("Error saving file");
-    res.send(`File uploaded successfully by ${username}`);
-  });
+    // Upload to Google Drive
+    const driveFileId = await uploadFile(file);
+
+    // Save metadata
+    const metadata = JSON.parse(fs.readFileSync(metadataPath));
+    metadata.push({
+      uploader: username || "Anonymous",
+      filename: file.originalname,
+      password: hashPassword(filepass),
+      driveFileId,
+      timestamp: Date.now()
+    });
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+
+    // Cleanup local
+    fs.unlinkSync(file.path);
+
+    res.send("File uploaded successfully!");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Upload failed");
+  }
 });
 
 // Admin dashboard
 app.get('/admin', (req, res) => {
-  const password = req.query.password;
-  if (password !== ADMIN_PASSWORD) return res.status(403).send("Forbidden: Invalid password");
+  if (req.query.password !== ADMIN_PASSWORD) return res.status(403).send("Forbidden");
 
-  fs.readdir(uploadFolder, (err, files) => {
-    if (err) return res.status(500).send("Error reading files");
-
-    let html = `<style>
-      body { background-color: #121212; color: #eee; font-family: sans-serif; padding: 20px; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 10px; border-bottom: 1px solid #333; text-align: left; }
-      a { color: #1e90ff; text-decoration: none; }
-      a:hover { text-decoration: underline; }
-      </style>
-      <h1>Uploaded Files</h1>
-      <table>
-      <tr><th>Uploader</th><th>Filename</th><th>Date & Time</th><th>Download</th></tr>`;
-
-    files.forEach(file => {
-      const parts = file.split('__');
-      const uploader = parts[0];
-      const timestamp = Number(parts[1]);
-      const filename = parts.slice(2).join('__');
-      const date = new Date(timestamp).toLocaleString();
-
-      html += `<tr>
-        <td>${uploader}</td>
-        <td>${filename}</td>
-        <td>${date}</td>
-        <td><a href="/admin/download/${file}?password=${ADMIN_PASSWORD}" target="_blank">Download</a></td>
-      </tr>`;
-    });
-
-    html += `</table>`;
-    res.send(html);
+  const metadata = JSON.parse(fs.readFileSync(metadataPath));
+  let html = `<h1>Admin Files</h1><table border="1"><tr><th>Uploader</th><th>Filename</th><th>Date</th><th>Download</th></tr>`;
+  metadata.forEach(file => {
+    const date = new Date(file.timestamp).toLocaleString();
+    const link = getFileLink(file.driveFileId);
+    html += `<tr><td>${file.uploader}</td><td>${file.filename}</td><td>${date}</td><td><a href="${link}" target="_blank">Download</a></td></tr>`;
   });
+  html += "</table>";
+  res.send(html);
 });
 
-// Download route
-app.get('/admin/download/:filename', (req, res) => {
-  const password = req.query.password;
-  if (password !== ADMIN_PASSWORD) return res.status(403).send("Forbidden");
+// Public files
+app.get('/files', (req, res) => {
+  const metadata = JSON.parse(fs.readFileSync(metadataPath));
+  let html = `<h1>Available Files</h1><table border="1"><tr><th>Uploader</th><th>Filename</th><th>Date</th><th>Access</th></tr>`;
+  metadata.forEach((file, i) => {
+    const date = new Date(file.timestamp).toLocaleString();
+    html += `<tr>
+      <td>${file.uploader}</td>
+      <td>${file.filename}</td>
+      <td>${date}</td>
+      <td>
+        <form method="POST" action="/access/${i}">
+          <input type="password" name="filepass" placeholder="Password" required/>
+          <button type="submit">Access</button>
+        </form>
+      </td>
+    </tr>`;
+  });
+  html += "</table>";
+  res.send(html);
+});
 
-  const filepath = path.join(uploadFolder, req.params.filename);
-  res.download(filepath);
+// Access file with password
+app.post('/access/:id', express.urlencoded({ extended: true }), (req, res) => {
+  const id = req.params.id;
+  const { filepass } = req.body;
+
+  const metadata = JSON.parse(fs.readFileSync(metadataPath));
+  const file = metadata[id];
+  if (!file) return res.status(404).send("File not found");
+
+  if (!checkPassword(filepass, file.password)) {
+    return res.status(403).send("Wrong password");
+  }
+
+  const link = getFileLink(file.driveFileId);
+  res.redirect(link);
 });
 
 app.listen(PORT, () => console.log(`DropVault running on port ${PORT}`));
