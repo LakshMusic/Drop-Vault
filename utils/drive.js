@@ -2,21 +2,36 @@ const { google } = require('googleapis');
 const fs = require('fs');
 
 const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+const folderId = process.env.DRIVE_FOLDER_ID; // Your folder ID
+
 const auth = new google.auth.GoogleAuth({
   credentials,
-  scopes: ['https://www.googleapis.com/auth/drive'],
+  scopes: ['https://www.googleapis.com/auth/drive']
 });
 
 const drive = google.drive({ version: 'v3', auth });
 
-// Your Google Drive folder ID
-const FOLDER_ID = 'YOUR_FOLDER_ID';
-
 async function uploadFile(file) {
-  const fileMetadata = { name: file.originalname, parents: [FOLDER_ID] };
+  const fileMetadata = { name: file.originalname, parents: [folderId] };
   const media = { mimeType: file.mimetype, body: fs.createReadStream(file.path) };
-  const response = await drive.files.create({ resource: fileMetadata, media, fields: 'id' });
-  return response.data.id;
+
+  const res = await drive.files.create({
+    resource: fileMetadata,
+    media: media,
+    fields: 'id, name'
+  });
+
+  fs.unlinkSync(file.path);
+  return res.data.id;
 }
 
-module.exports = { uploadFile };
+async function listFiles() {
+  const res = await drive.files.list({
+    q: `'${folderId}' in parents and trashed=false`,
+    fields: 'files(id, name)',
+    orderBy: 'createdTime desc'
+  });
+  return res.data.files;
+}
+
+module.exports = { uploadFile, listFiles };
